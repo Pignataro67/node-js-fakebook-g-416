@@ -188,7 +188,54 @@ app.post('/login',
     res.redirect('/posts');
   });
 
+app.get('/follow/:id', isAuthenticated, (req, res) => {
+  if (_.isEmpty(req.params)) {
+    return res.sendSatus(400);
+  }
 
+  User
+    .forge({ id: req.params.id })
+    .fetch()
+    .then((user) => {
+      if (!user) {
+        return res.sendStatus(400);
+      }
+      return User
+        .forge({ id: req.user.id })
+        .following()
+        .attach([ user ]);
+    })
+    .then(user => res.send(_.pluck(user.models, 'id')))
+    .catch(err => res.status(500).json({ message: err }));
+});
+
+app.get('/unfollow/:id', isAuthenticated, (req, res) => {
+  if (_.isEmpty(req.params)) {
+    return res.sendStatus(400);
+  }
+
+  User
+    .forge({ id: req.user.id })
+    .following()
+    .detach([ req.params.id ])
+    .then(following => res.end())
+    .catch(err => res.status(500).json({ message: err }));
+});
+
+app.get('/', isAuthenticated, (req, res) => {
+  const followedIds = _.pluck(req.user.related('following').models, 'id');
+  let followers = {};
+  followedIds.forEach((id, index) => {
+    followers[(idx === 0) ? 'where': 'orWhere'] = { 'author': id };
+  });
+
+  Post
+    .query(followers)
+    .orderBy('-created_at')
+    .fetchAll({ withRelated: ['author']})
+    .then(posts => res.send(posts))
+    .catch(err => res.status(500).json({ message: err }));
+})
 // Exports for Server Hoisting.
 
 const listen = (port) => {
