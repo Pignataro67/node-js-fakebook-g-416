@@ -9,6 +9,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const handlebars = require('express-handlebars');
 const flash = require('connect-flash');
+const pry = require('pryjs');
 
 const ENV = process.env.NODE_ENV || 'development';
 
