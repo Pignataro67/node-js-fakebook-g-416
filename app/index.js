@@ -9,6 +9,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const handlebars = require('express-handlebars');
 const flash = require('connect-flash');
+const pry = require('pryjs');
 
 const ENV = process.env.NODE_ENV || 'development';
 
@@ -40,7 +41,6 @@ console.log(`Running in environment: ${ENV}`);
 const Comment = require('./models/comment');
 const Post = require('./models/post');
 const User = require('./models/user');
-const Follower = require('./models/follower');
 
 /// ***** Passport Strategies & Helpers ***** //
 
@@ -89,21 +89,6 @@ const isAuthenticated = (req, res, done) => {
 
 // ***** Server ***** //
 
-app.get('/follower/:id', isAuthenticated, (req,res) => {
-  User
-    .forge({id: req.params.id})
-    .fetch()
-    .then((usr) => {
-      if (_.isEmpty(usr))
-        return res.sendStatus(404);
-      res.send([usr.id]);
-    })
-    .catch((error) => {
-      console.error(error);
-      return res.sendStatus(500);
-    });
-});
-
 app.get('/user/:id', isAuthenticated, (req,res) => {
   User
     .forge({id: req.params.id})
@@ -119,7 +104,7 @@ app.get('/user/:id', isAuthenticated, (req,res) => {
     });
 });
 
-app.post('/user', isAuthenticated, (req, res) => {
+app.post('/user', (req, res) => {
   if (_.isEmpty(req.body))
     return res.sendStatus(400);
   User
@@ -203,6 +188,55 @@ app.post('/login',
   function(req, res) {
     res.redirect('/posts');
   });
+
+app.get('/follow/:id', isAuthenticated, (req, res) => {
+  if (_.isEmpty(req.params)) {
+    return res.sendSatus(400);
+  }
+
+  User
+    .forge({ id: req.params.id })
+    .fetch()
+    .then((user) => {
+      if (!user) {
+        return res.sendStatus(400);
+      }
+      return User
+        .forge({ id: req.user.id })
+        .following()
+        .attach([ user ]);
+    })
+    .then(user => res.send(_.pluck(user.models, 'id')))
+    .catch(err => res.status(500).json({ message: err }));
+});
+
+app.get('/unfollow/:id', isAuthenticated, (req, res) => {
+  if (_.isEmpty(req.params)) {
+    return res.sendStatus(400);
+  }
+
+  User
+    .forge({ id: req.user.id })
+    .following()
+    .detach([ req.params.id ])
+    .then(following => res.end())
+    .catch(err => res.status(500).json({ message: err }));
+});
+
+app.get('/', isAuthenticated, (req, res) => {
+  const followedIds = _.pluck(req.user.related('following').models, 'id');
+  let followers = {};
+  followedIds.forEach((id, index) => {
+    followers[(idx === 0) ? 'where': 'orWhere'] = { 'author': id };
+  });
+
+  Post
+    .query(followers)
+    .orderBy('-created_at')
+    .fetchAll({ withRelated: ['author']})
+    .then(posts => res.send(posts))
+    .catch(err => res.status(500).json({ message: err }));
+})
 
 
 // Exports for Server Hoisting.
