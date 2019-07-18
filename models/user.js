@@ -10,6 +10,7 @@ const User = bookshelf.Model.extend({
   tableName: 'users',
   initialize: function() {
     this.on('creating', this.encryptPassword);
+    this.on('destroying', this.destroyAllAttached);
   },
   hasTimestamps: true,
   posts: function() {
